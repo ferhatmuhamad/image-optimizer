@@ -811,7 +811,7 @@ class Ferhat_Image_Optimizer {
 								<option value="off"      <?php selected( $delivery_mode, 'off' ); ?>><?php esc_html_e( 'Off — do not serve WebP automatically', 'ferhat-image-optimizer' ); ?></option>
 							</select>
 							<p class="description">
-								<?php esc_html_e( '"Both" uses an output buffer as a fallback when .htaccess is not honoured. ".htaccess" is fastest on Apache/LiteSpeed only.', 'ferhat-image-optimizer' ); ?>
+								<?php esc_html_e( '"Both" uses an output buffer as a fallback when .htaccess is not honored. ".htaccess" is fastest on Apache/LiteSpeed only.', 'ferhat-image-optimizer' ); ?>
 							</p>
 						</td>
 					</tr>
@@ -1218,14 +1218,13 @@ server {
 			}
 
 			$base_name    = (string) preg_replace( '/\.webp$/i', '', $webp_path );
-			$has_original = (
-				file_exists( $base_name . '.jpg' )  ||
-				file_exists( $base_name . '.jpeg' ) ||
-				file_exists( $base_name . '.png' )  ||
-				file_exists( $base_name . '.JPG' )  ||
-				file_exists( $base_name . '.JPEG' ) ||
-				file_exists( $base_name . '.PNG' )
-			);
+			$has_original = false;
+			foreach ( array( 'jpg', 'jpeg', 'png', 'JPG', 'JPEG', 'PNG' ) as $ext ) {
+				if ( file_exists( $base_name . '.' . $ext ) ) {
+					$has_original = true;
+					break;
+				}
+			}
 
 			if ( ! $has_original ) {
 				wp_delete_file( $webp_path );
