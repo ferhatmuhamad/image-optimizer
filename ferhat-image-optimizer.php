@@ -17,6 +17,18 @@ define('FIO_VERSION', '1.0.0');
 define('FIO_PATH', plugin_dir_path(__FILE__));
 define('FIO_URL', plugin_dir_url(__FILE__));
 
+if (!function_exists('fio_delete_generated_file')) {
+    function fio_delete_generated_file($path) {
+        if (!$path || !file_exists($path)) {
+            return;
+        }
+
+        if (!unlink($path)) {
+            error_log(sprintf('Ferhat Image Optimizer: failed to delete generated file: %s', $path));
+        }
+    }
+}
+
 class Ferhat_Image_Optimizer {
 
     private $options;
@@ -85,7 +97,7 @@ class Ferhat_Image_Optimizer {
         ?>
         <div class="wrap">
             <h1>🖼️ Ferhat Image Optimizer</h1>
-            <p>Convert JPG/PNG ke <strong>WebP</strong> secara otomatis. Gratis, tanpa API key.</p>
+            <p>Automatically convert JPG/PNG to <strong>WebP</strong>. Free, no API key required.</p>
 
             <h2 class="title">Engine Status</h2>
             <table class="widefat striped" style="max-width:600px">
@@ -100,7 +112,7 @@ class Ferhat_Image_Optimizer {
                         <th><label for="fio_quality">WebP Quality (1-100)</label></th>
                         <td>
                             <input type="number" id="fio_quality" name="fio_settings[quality]" min="1" max="100" value="<?php echo esc_attr($opts['quality']); ?>" />
-                            <p class="description">Disarankan 75–85. Lebih kecil = file lebih ringan tapi kualitas turun.</p>
+                            <p class="description">Recommended 75–85. Lower values produce smaller files but reduced quality.</p>
                         </td>
                     </tr>
                     <tr>
@@ -115,15 +127,15 @@ class Ferhat_Image_Optimizer {
                     </tr>
                     <tr>
                         <th>Auto Convert on Upload</th>
-                        <td><label><input type="checkbox" name="fio_settings[auto_convert]" value="1" <?php checked($opts['auto_convert'], 1); ?> /> Konversi otomatis saat upload gambar baru</label></td>
+                        <td><label><input type="checkbox" name="fio_settings[auto_convert]" value="1" <?php checked($opts['auto_convert'], 1); ?> /> Automatically convert newly uploaded images</label></td>
                     </tr>
                     <tr>
                         <th>Keep Original</th>
-                        <td><label><input type="checkbox" name="fio_settings[keep_original]" value="1" <?php checked($opts['keep_original'], 1); ?> /> Simpan file asli (disarankan)</label></td>
+                        <td><label><input type="checkbox" name="fio_settings[keep_original]" value="1" <?php checked($opts['keep_original'], 1); ?> /> Keep original files (recommended)</label></td>
                     </tr>
                     <tr>
                         <th>Serve WebP to Browsers</th>
-                        <td><label><input type="checkbox" name="fio_settings[serve_webp]" value="1" <?php checked($opts['serve_webp'], 1); ?> /> Otomatis serve WebP via &lt;picture&gt; tag</label></td>
+                        <td><label><input type="checkbox" name="fio_settings[serve_webp]" value="1" <?php checked($opts['serve_webp'], 1); ?> /> Automatically serve WebP via &lt;picture&gt; tag</label></td>
                     </tr>
                 </table>
                 <?php submit_button('Save Settings'); ?>
@@ -131,7 +143,7 @@ class Ferhat_Image_Optimizer {
 
             <hr/>
             <h2>🔁 Bulk Convert Existing Images</h2>
-            <p>Klik tombol di bawah untuk konversi semua gambar JPG/PNG yang sudah ada di Media Library.</p>
+            <p>Click the button below to convert all existing JPG/PNG images in the Media Library.</p>
             <button id="fio-start-bulk" class="button button-primary">Start Bulk Convert</button>
             <button id="fio-stop-bulk" class="button" style="display:none">Stop</button>
 
@@ -150,7 +162,7 @@ class Ferhat_Image_Optimizer {
             let processed = 0, total = 0, saved = 0;
 
             $('#fio-start-bulk').on('click', function(){
-                if (!confirm('Mulai konversi semua gambar? Proses ini bisa memakan waktu.')) return;
+                if (!confirm('Start converting all images? This process may take some time.')) return;
                 stop = false;
                 processed = 0; saved = 0;
                 $('#fio-progress').show();
@@ -159,9 +171,9 @@ class Ferhat_Image_Optimizer {
                 $('#fio-stop-bulk').show();
 
                 $.post(ajaxurl, { action: 'fio_get_images', _ajax_nonce: '<?php echo wp_create_nonce('fio_nonce'); ?>' }, function(res){
-                    if (!res.success) { alert('Gagal ambil daftar gambar'); return; }
+                    if (!res.success) { alert('Failed to retrieve image list'); return; }
                     total = res.data.ids.length;
-                    if (total === 0) { $('#fio-status').text('Tidak ada gambar untuk diproses.'); return; }
+                    if (total === 0) { $('#fio-status').text('No images to process.'); return; }
                     processNext(res.data.ids);
                 });
             });
@@ -170,7 +182,7 @@ class Ferhat_Image_Optimizer {
 
             function processNext(ids) {
                 if (stop || ids.length === 0) {
-                    $('#fio-status').html('<strong>Selesai!</strong> ' + processed + ' gambar diproses. Total hemat: ' + formatBytes(saved));
+                    $('#fio-status').html('<strong>Done!</strong> ' + processed + ' images processed. Total saved: ' + formatBytes(saved));
                     $('#fio-start-bulk').show();
                     $('#fio-stop-bulk').hide();
                     return;
@@ -214,7 +226,7 @@ class Ferhat_Image_Optimizer {
             'gd'           => extension_loaded('gd'),
             'gd_webp'      => extension_loaded('gd') && function_exists('imagewebp'),
             'imagick'      => extension_loaded('imagick'),
-            'imagick_webp' => extension_loaded('imagick') && in_array('WEBP', (array) @Imagick::queryFormats(), true),
+            'imagick_webp' => extension_loaded('imagick') && in_array('WEBP', (array) Imagick::queryFormats(), true),
         ];
     }
 
@@ -400,9 +412,7 @@ class Ferhat_Image_Optimizer {
         $file = get_attached_file($id);
         if ($file) {
             $webp = preg_replace('/\.(jpe?g|png)$/i', '.webp', $file);
-            if (file_exists($webp)) {
-                @unlink($webp);
-            }
+            fio_delete_generated_file($webp);
         }
         delete_post_meta($id, '_fio_webp');
         delete_post_meta($id, '_fio_saved');
@@ -456,18 +466,14 @@ add_action('delete_attachment', function($id) {
     $file = get_attached_file($id);
     if ($file) {
         $webp = preg_replace('/\.(jpe?g|png)$/i', '.webp', $file);
-        if (file_exists($webp)) {
-            @unlink($webp);
-        }
+        fio_delete_generated_file($webp);
     }
     $meta = wp_get_attachment_metadata($id);
     if ($file && !empty($meta['sizes'])) {
         $dir = dirname($file);
         foreach ($meta['sizes'] as $size) {
             $webp = preg_replace('/\.(jpe?g|png)$/i', '.webp', $dir . '/' . $size['file']);
-            if (file_exists($webp)) {
-                @unlink($webp);
-            }
+            fio_delete_generated_file($webp);
         }
     }
 });
