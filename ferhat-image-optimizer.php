@@ -29,6 +29,16 @@ if (!function_exists('fio_delete_generated_file')) {
     }
 }
 
+if (!function_exists('fio_get_webp_path')) {
+    function fio_get_webp_path($path) {
+        if (!$path || !preg_match('/\.(jpe?g|png)$/i', $path)) {
+            return false;
+        }
+
+        return preg_replace('/\.(jpe?g|png)$/i', '.webp', $path);
+    }
+}
+
 class Ferhat_Image_Optimizer {
 
     private $options;
@@ -178,6 +188,10 @@ class Ferhat_Image_Optimizer {
                     total = res.data.ids.length;
                     if (total === 0) { $('#fio-status').text('No images to process.'); return; }
                     processNext(res.data.ids);
+                }).fail(function(){
+                    $('#fio-start-bulk').show();
+                    $('#fio-stop-bulk').hide();
+                    alert('Failed to retrieve image list');
                 });
             });
 
@@ -281,7 +295,8 @@ class Ferhat_Image_Optimizer {
             if ($engine === 'imagick') {
                 $img = new Imagick($source_path);
                 $img->setImageCompressionQuality($quality);
-                $img->writeImage('webp:' . $webp_path);
+                $img->setImageFormat('webp');
+                $img->writeImage($webp_path);
                 $img->clear();
                 $img->destroy();
             } else {
@@ -303,7 +318,10 @@ class Ferhat_Image_Optimizer {
                 if (!$img) {
                     return new WP_Error('decode_fail', 'Failed to decode image');
                 }
-                imagewebp($img, $webp_path, $quality);
+                if (!imagewebp($img, $webp_path, $quality)) {
+                    imagedestroy($img);
+                    return new WP_Error('write_fail', 'Failed to write WebP file');
+                }
                 imagedestroy($img);
             }
         } catch (Exception $e) {
@@ -418,8 +436,7 @@ class Ferhat_Image_Optimizer {
         $id = intval($_POST['attachment_id'] ?? 0);
         $file = get_attached_file($id);
         if ($file) {
-            $webp = preg_replace('/\.(jpe?g|png)$/i', '.webp', $file);
-            fio_delete_generated_file($webp);
+            fio_delete_generated_file(fio_get_webp_path($file));
         }
         delete_post_meta($id, '_fio_webp');
         delete_post_meta($id, '_fio_saved');
@@ -484,15 +501,13 @@ new Ferhat_Image_Optimizer();
 add_action('delete_attachment', function($id) {
     $file = get_attached_file($id);
     if ($file) {
-        $webp = preg_replace('/\.(jpe?g|png)$/i', '.webp', $file);
-        fio_delete_generated_file($webp);
+        fio_delete_generated_file(fio_get_webp_path($file));
     }
     $meta = wp_get_attachment_metadata($id);
     if ($file && !empty($meta['sizes'])) {
         $dir = dirname($file);
         foreach ($meta['sizes'] as $size) {
-            $webp = preg_replace('/\.(jpe?g|png)$/i', '.webp', $dir . '/' . $size['file']);
-            fio_delete_generated_file($webp);
+            fio_delete_generated_file(fio_get_webp_path($dir . '/' . $size['file']));
         }
     }
 });
