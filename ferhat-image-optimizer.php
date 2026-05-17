@@ -259,7 +259,6 @@ class Ferhat_Image_Optimizer {
             if ($engine === 'imagick') {
                 $img = new Imagick($source_path);
                 if ($ext === 'png') {
-                    $img->setImageFormat('webp');
                     $img->setOption('webp:lossless', 'false');
                 }
                 $img->setImageCompressionQuality($quality);
@@ -463,7 +462,7 @@ add_action('delete_attachment', function($id) {
         }
     }
     $meta = wp_get_attachment_metadata($id);
-    if (!empty($meta['sizes'])) {
+    if ($file && !empty($meta['sizes'])) {
         $dir = dirname($file);
         foreach ($meta['sizes'] as $size) {
             $webp = preg_replace('/\.(jpe?g|png)$/i', '.webp', $dir . '/' . $size['file']);
