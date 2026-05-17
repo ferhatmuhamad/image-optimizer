@@ -170,7 +170,7 @@ class Ferhat_Image_Optimizer {
                 $('#fio-start-bulk').hide();
                 $('#fio-stop-bulk').show();
 
-                $.post(ajaxurl, { action: 'fio_get_images', _ajax_nonce: '<?php echo wp_create_nonce('fio_nonce'); ?>' }, function(res){
+                $.post(ajaxurl, { action: 'fio_get_images', _ajax_nonce: '<?php echo esc_js(wp_create_nonce('fio_nonce')); ?>' }, function(res){
                     if (!res.success) { alert('Failed to retrieve image list'); return; }
                     total = res.data.ids.length;
                     if (total === 0) { $('#fio-status').text('No images to process.'); return; }
@@ -191,7 +191,7 @@ class Ferhat_Image_Optimizer {
                 $.post(ajaxurl, {
                     action: 'fio_bulk_convert',
                     attachment_id: id,
-                    _ajax_nonce: '<?php echo wp_create_nonce('fio_nonce'); ?>'
+                    _ajax_nonce: '<?php echo esc_js(wp_create_nonce('fio_nonce')); ?>'
                 }, function(res){
                     processed++;
                     const pct = Math.round(processed / total * 100);
@@ -222,11 +222,18 @@ class Ferhat_Image_Optimizer {
     }
 
     private function detect_engine_status() {
+        $imagick_available = extension_loaded('imagick');
+        $imagick_webp = false;
+
+        if ($imagick_available) {
+            $imagick_webp = in_array('WEBP', (array) Imagick::queryFormats(), true);
+        }
+
         return [
             'gd'           => extension_loaded('gd'),
             'gd_webp'      => extension_loaded('gd') && function_exists('imagewebp'),
-            'imagick'      => extension_loaded('imagick'),
-            'imagick_webp' => extension_loaded('imagick') && in_array('WEBP', (array) Imagick::queryFormats(), true),
+            'imagick'      => $imagick_available,
+            'imagick_webp' => $imagick_webp,
         ];
     }
 
@@ -270,9 +277,6 @@ class Ferhat_Image_Optimizer {
         try {
             if ($engine === 'imagick') {
                 $img = new Imagick($source_path);
-                if ($ext === 'png') {
-                    $img->setOption('webp:lossless', 'false');
-                }
                 $img->setImageCompressionQuality($quality);
                 $img->writeImage('webp:' . $webp_path);
                 $img->clear();
@@ -449,11 +453,11 @@ class Ferhat_Image_Optimizer {
 
     private function url_to_path($url) {
         $uploads = wp_get_upload_dir();
-        if (strpos($url, $uploads['baseurl']) === 0) {
+        if (!empty($uploads['baseurl']) && strpos($url, $uploads['baseurl']) === 0) {
             return str_replace($uploads['baseurl'], $uploads['basedir'], $url);
         }
         $site = site_url();
-        if (strpos($url, $site) === 0) {
+        if (!empty($site) && strpos($url, $site) === 0) {
             return str_replace($site, untrailingslashit(ABSPATH), $url);
         }
         return false;
