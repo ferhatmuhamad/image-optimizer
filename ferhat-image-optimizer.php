@@ -89,6 +89,9 @@ class Ferhat_Image_Optimizer {
             return;
         }
         wp_enqueue_script('jquery');
+        wp_localize_script('jquery', 'fioAdmin', [
+            'nonce' => wp_create_nonce('fio_nonce'),
+        ]);
     }
 
     public function render_settings_page() {
@@ -170,7 +173,7 @@ class Ferhat_Image_Optimizer {
                 $('#fio-start-bulk').hide();
                 $('#fio-stop-bulk').show();
 
-                $.post(ajaxurl, { action: 'fio_get_images', _ajax_nonce: '<?php echo esc_js(wp_create_nonce('fio_nonce')); ?>' }, function(res){
+                $.post(ajaxurl, { action: 'fio_get_images', _ajax_nonce: fioAdmin.nonce }, function(res){
                     if (!res.success) { alert('Failed to retrieve image list'); return; }
                     total = res.data.ids.length;
                     if (total === 0) { $('#fio-status').text('No images to process.'); return; }
@@ -191,7 +194,7 @@ class Ferhat_Image_Optimizer {
                 $.post(ajaxurl, {
                     action: 'fio_bulk_convert',
                     attachment_id: id,
-                    _ajax_nonce: '<?php echo esc_js(wp_create_nonce('fio_nonce')); ?>'
+                    _ajax_nonce: fioAdmin.nonce
                 }, function(res){
                     processed++;
                     const pct = Math.round(processed / total * 100);
@@ -453,14 +456,26 @@ class Ferhat_Image_Optimizer {
 
     private function url_to_path($url) {
         $uploads = wp_get_upload_dir();
-        if (!empty($uploads['baseurl']) && strpos($url, $uploads['baseurl']) === 0) {
+        if ($this->url_has_prefix($url, $uploads['baseurl'] ?? '')) {
             return str_replace($uploads['baseurl'], $uploads['basedir'], $url);
         }
         $site = site_url();
-        if (!empty($site) && strpos($url, $site) === 0) {
+        if ($this->url_has_prefix($url, $site)) {
             return str_replace($site, untrailingslashit(ABSPATH), $url);
         }
         return false;
+    }
+
+    private function url_has_prefix($url, $prefix) {
+        if (empty($url) || empty($prefix) || strpos($url, $prefix) !== 0) {
+            return false;
+        }
+
+        if (strlen($url) === strlen($prefix)) {
+            return true;
+        }
+
+        return substr($url, strlen($prefix), 1) === '/';
     }
 }
 
