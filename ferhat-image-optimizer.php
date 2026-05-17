@@ -214,7 +214,7 @@ class Ferhat_Image_Optimizer {
             'gd'           => extension_loaded('gd'),
             'gd_webp'      => extension_loaded('gd') && function_exists('imagewebp'),
             'imagick'      => extension_loaded('imagick'),
-            'imagick_webp' => extension_loaded('imagick') && in_array('WEBP', (array) @Imagick::queryFormats('WEBP'), true),
+            'imagick_webp' => extension_loaded('imagick') && in_array('WEBP', (array) @Imagick::queryFormats(), true),
         ];
     }
 
@@ -262,8 +262,7 @@ class Ferhat_Image_Optimizer {
                     $img->setOption('webp:lossless', 'false');
                 }
                 $img->setImageCompressionQuality($quality);
-                $img->setImageFormat('webp');
-                $img->writeImage($webp_path);
+                $img->writeImage('webp:' . $webp_path);
                 $img->clear();
                 $img->destroy();
             } else {
